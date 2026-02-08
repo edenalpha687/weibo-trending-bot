@@ -183,6 +183,39 @@ def buttons(update: Update, context: CallbackContext):
         q.edit_message_text("Trending activated.")
 
 
+# ===== ADDED TEXT HANDLER (ONLY ADDITION) =====
+def messages(update: Update, context: CallbackContext):
+    uid = update.message.from_user.id
+    txt = update.message.text.strip()
+    state = USER_STATE.get(uid)
+
+    if not state:
+        return
+
+    if state["step"] == "CA":
+        data = fetch_dex_data(txt)
+
+        if not data:
+            update.message.reply_text("Token not found.")
+            return
+
+        state.update(data)
+        state["ca"] = txt
+
+        context.bot.send_photo(
+            uid,
+            data["logo"],
+            caption=(
+                f"Token Detected\n\n"
+                f"Name: {data['name']}\n"
+                f"Symbol: {data['symbol']}\n"
+                f"Price: ${data['price']}\n"
+                f"Liquidity: {fmt_usd(data['liquidity'])}\n"
+                f"Market Cap: {fmt_usd(data['mcap'])}"
+            ),
+        )
+
+
 # ===== MAIN =====
 def main():
     updater = Updater(BOT_TOKEN, use_context=True)
@@ -190,6 +223,7 @@ def main():
 
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CallbackQueryHandler(buttons))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, messages))
 
     updater.start_polling()
     updater.idle()
