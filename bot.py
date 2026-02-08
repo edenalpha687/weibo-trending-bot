@@ -34,7 +34,7 @@ USER_STATE = {}
 USED_TXIDS = set()
 
 
-# ===== PRICE CONVERSION =====
+# ===== AUTO PRICE CONVERSION =====
 def get_price(symbol):
     ids = {
         "SOL": "solana",
@@ -56,7 +56,7 @@ def get_price(symbol):
         return None
 
 
-# ===== FETCH TOKEN =====
+# ===== FETCH TOKEN DATA (ADDED TWITTER FALLBACK) =====
 def fetch_dex_data(ca):
     r = requests.get(f"{DEX_TOKEN_URL}{ca}", timeout=15)
     pairs = r.json().get("pairs", [])
@@ -65,10 +65,14 @@ def fetch_dex_data(ca):
 
     pair = max(pairs, key=lambda p: (p.get("liquidity") or {}).get("usd", 0))
 
-    telegram_link = None
+    telegram = None
+    twitter = None
+
     for l in (pair.get("info") or {}).get("links", []):
         if l.get("type") == "telegram":
-            telegram_link = l.get("url")
+            telegram = l.get("url")
+        if l.get("type") == "twitter":
+            twitter = l.get("url")
 
     return {
         "name": pair["baseToken"]["name"],
@@ -78,11 +82,12 @@ def fetch_dex_data(ca):
         "mcap": pair.get("fdv"),
         "pair_url": pair.get("url"),
         "logo": (pair.get("info") or {}).get("imageUrl"),
-        "telegram": telegram_link,
+        "telegram": telegram,
+        "twitter": twitter,
     }
 
 
-# ===== START =====
+# ===== START UI =====
 def start(update: Update, context: CallbackContext):
     kb = [[InlineKeyboardButton("🐰Activate Weibo Trending 🇨🇳", callback_data="START")]]
 
@@ -101,7 +106,6 @@ def buttons(update: Update, context: CallbackContext):
     uid = q.from_user.id
     state = USER_STATE.get(uid)
 
-    # NETWORK SELECT
     if q.data == "START":
         kb = [
             [InlineKeyboardButton("SOL", callback_data="NET_SOL"),
@@ -121,7 +125,6 @@ def buttons(update: Update, context: CallbackContext):
             reply_markup=InlineKeyboardMarkup(kb),
         )
 
-    # ENTER CA
     elif q.data.startswith("NET_"):
         network = q.data.replace("NET_", "")
         USER_STATE[uid] = {"step": "CA", "network": network}
@@ -134,7 +137,6 @@ def buttons(update: Update, context: CallbackContext):
             caption="Enter Your Token CA",
         )
 
-    # PACKAGES
     elif q.data == "PACKAGES":
         kb = [[InlineKeyboardButton(f"{k} — ${v}", callback_data=f"PKG_{k}")]
               for k, v in PACKAGES.items()]
@@ -143,7 +145,6 @@ def buttons(update: Update, context: CallbackContext):
 
         context.bot.send_message(uid, "Select duration:", reply_markup=InlineKeyboardMarkup(kb))
 
-    # PACKAGE SELECTED → SHOW INFO AGAIN
     elif q.data.startswith("PKG_"):
         pkg = q.data.replace("PKG_", "")
         state["package"] = pkg
@@ -154,21 +155,19 @@ def buttons(update: Update, context: CallbackContext):
 
         state["amount"] = amount
 
-        name_line = (
-            f'<a href="{state["telegram"]}">{state["name"]}</a>'
-            if state.get("telegram")
-            else state["name"]
-        )
+        # ===== ADDED CLEAN CLICKABLE NAME =====
+        link = state.get("telegram") or state.get("twitter") or state["pair_url"]
+        name_line = f'<a href="{link}"><b>{state["name"]}</b></a>'
 
         caption = (
-            "🟢 Token Detected\n\n"
+            "✨ <b>Token Detected</b>\n\n"
             f"{name_line}\n"
-            f"Symbol: {state['symbol']}\n"
-            f'<a href="{state["pair_url"]}">Price: ${state["price"]}</a>\n'
-            f"Liquidity: ${state['liquidity']}\n"
-            f"Market Cap: ${state['mcap']}\n\n"
+            f"🔹 Symbol: <b>{state['symbol']}</b>\n"
+            f'💰 <a href="{state["pair_url"]}">Price: ${state["price"]}</a>\n'
+            f"💧 Liquidity: ${state['liquidity']:,.2f}\n"
+            f"📊 Market Cap: ${state['mcap']:,.0f}\n\n"
             f"⏱ Package: {pkg}\n"
-            f"💰 Pay: {amount} {state['network']}"
+            f"💎 Pay: {amount} {state['network']}"
         )
 
         q.message.delete()
@@ -184,7 +183,6 @@ def buttons(update: Update, context: CallbackContext):
             ]),
         )
 
-    # PAYMENT STEP
     elif q.data == "PAY":
         wallet = NETWORK_WALLETS[state["network"]]
         state["step"] = "TXID"
@@ -197,7 +195,6 @@ def buttons(update: Update, context: CallbackContext):
             parse_mode="Markdown",
         )
 
-    # ADMIN START
     elif q.data.startswith("ADMIN_START_") and uid == ADMIN_ID:
         ref = q.data.replace("ADMIN_START_", "")
         payload = context.bot_data.pop(ref, None)
@@ -232,19 +229,16 @@ def messages(update: Update, context: CallbackContext):
         state.update(data)
         state["ca"] = txt
 
-        name_line = (
-            f'<a href="{data["telegram"]}">{data["name"]}</a>'
-            if data.get("telegram")
-            else data["name"]
-        )
+        link = data.get("telegram") or data.get("twitter") or data["pair_url"]
+        name_line = f'<a href="{link}"><b>{data["name"]}</b></a>'
 
         caption = (
-            "🟢 Token Detected\n\n"
+            "✨ <b>Token Detected</b>\n\n"
             f"{name_line}\n"
-            f"Symbol: {data['symbol']}\n"
-            f'<a href="{data["pair_url"]}">Price: ${data["price"]}</a>\n'
-            f"Liquidity: ${data['liquidity']}\n"
-            f"Market Cap: ${data['mcap']}"
+            f"🔹 Symbol: <b>{data['symbol']}</b>\n"
+            f'💰 <a href="{data["pair_url"]}">Price: ${data["price"]}</a>\n'
+            f"💧 Liquidity: ${data['liquidity']:,.2f}\n"
+            f"📊 Market Cap: ${data['mcap']:,.0f}"
         )
 
         context.bot.send_photo(
