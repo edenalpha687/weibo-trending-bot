@@ -84,7 +84,7 @@ def fetch_dex_data(ca):
         "logo": (pair.get("info") or {}).get("imageUrl"),
         "telegram": telegram,
         "twitter": twitter,
-        "chain": pair.get("chainId", "").upper(),
+        "chain": pair.get("chainId", "").lower(),
     }
 
 
@@ -142,11 +142,15 @@ def buttons(update: Update, context: CallbackContext):
         kb = [
             [InlineKeyboardButton("24H • $2,500", callback_data="PKG_24H"),
              InlineKeyboardButton("48H • $5,500", callback_data="PKG_48H")],
+
             [InlineKeyboardButton("72H • $8,000", callback_data="PKG_72H"),
              InlineKeyboardButton("96H • $10,500", callback_data="PKG_96H")],
+
             [InlineKeyboardButton("120H • $13,000", callback_data="PKG_120H"),
              InlineKeyboardButton("144H • $15,500", callback_data="PKG_144H")],
+
             [InlineKeyboardButton("168H • $18,000", callback_data="PKG_168H")],
+
             [InlineKeyboardButton("⬅️ Back", callback_data="START")]
         ]
 
@@ -211,6 +215,20 @@ def buttons(update: Update, context: CallbackContext):
             parse_mode="HTML",
         )
 
+    elif q.data.startswith("ADMIN_START_") and uid == ADMIN_ID:
+        ref = q.data.replace("ADMIN_START_", "")
+        payload = context.bot_data.pop(ref, None)
+
+        context.bot.send_message(
+            CHANNEL_USERNAME,
+            f"🔥 Weibo Trending Live 🇨🇳\n\n"
+            f"{payload['name']} ({payload['symbol']})\n"
+            f"CA: {payload['ca']}\n"
+            f"Started: {datetime.utcnow().strftime('%H:%M UTC')}",
+        )
+
+        q.edit_message_text("Trending activated.")
+
 
 # ===== TEXT HANDLER =====
 def messages(update: Update, context: CallbackContext):
@@ -228,10 +246,21 @@ def messages(update: Update, context: CallbackContext):
             update.message.reply_text("Token not found.")
             return
 
-        # 🚨 NEW CHAIN VALIDATION
-        if data["chain"] and data["chain"] != state["network"]:
+        # ⭐ ADDED NETWORK VALIDATION FIX
+        chain_map = {
+            "SOL": ["solana"],
+            "ETH": ["ethereum", "eth"],
+            "BSC": ["bsc", "binance-smart-chain"],
+            "BASE": ["base"],
+            "SUI": ["sui"],
+            "XRP": ["xrpl", "xrp"],
+        }
+
+        token_chain = (data.get("chain") or "").lower()
+
+        if token_chain and token_chain not in chain_map.get(state["network"], []):
             update.message.reply_text(
-                f"❌ Wrong network.\nYou selected {state['network']} but token is on {data['chain']}."
+                f"❌ Wrong network.\nYou selected {state['network']} but token appears on {token_chain.upper()}."
             )
             return
 
@@ -285,7 +314,6 @@ def messages(update: Update, context: CallbackContext):
         USER_STATE.pop(uid, None)
 
 
-# ===== MAIN =====
 def main():
     updater = Updater(BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
