@@ -34,7 +34,7 @@ USER_STATE = {}
 USED_TXIDS = set()
 
 
-# ===== AUTO PRICE CONVERSION =====
+# ===== PRICE CONVERSION =====
 def get_price(symbol):
     ids = {
         "SOL": "solana",
@@ -56,7 +56,7 @@ def get_price(symbol):
         return None
 
 
-# ===== FETCH TOKEN DATA (ADDED TWITTER FALLBACK) =====
+# ===== FETCH TOKEN DATA =====
 def fetch_dex_data(ca):
     r = requests.get(f"{DEX_TOKEN_URL}{ca}", timeout=15)
     pairs = r.json().get("pairs", [])
@@ -87,7 +87,7 @@ def fetch_dex_data(ca):
     }
 
 
-# ===== START UI =====
+# ===== START =====
 def start(update: Update, context: CallbackContext):
     kb = [[InlineKeyboardButton("🐰Activate Weibo Trending 🇨🇳", callback_data="START")]]
 
@@ -99,7 +99,7 @@ def start(update: Update, context: CallbackContext):
     )
 
 
-# ===== BUTTON FLOW =====
+# ===== BUTTONS =====
 def buttons(update: Update, context: CallbackContext):
     q = update.callback_query
     q.answer()
@@ -137,13 +137,29 @@ def buttons(update: Update, context: CallbackContext):
             caption="Enter Your Token CA",
         )
 
+    # ===== PACKAGES GRID LAYOUT =====
     elif q.data == "PACKAGES":
-        kb = [[InlineKeyboardButton(f"{k} — ${v}", callback_data=f"PKG_{k}")]
-              for k, v in PACKAGES.items()]
+        kb = [
+            [InlineKeyboardButton("24H • $2,500", callback_data="PKG_24H"),
+             InlineKeyboardButton("48H • $5,500", callback_data="PKG_48H")],
 
-        kb.append([InlineKeyboardButton("⬅️ Back", callback_data="START")])
+            [InlineKeyboardButton("72H • $8,000", callback_data="PKG_72H"),
+             InlineKeyboardButton("96H • $10,500", callback_data="PKG_96H")],
 
-        context.bot.send_message(uid, "Select duration:", reply_markup=InlineKeyboardMarkup(kb))
+            [InlineKeyboardButton("120H • $13,000", callback_data="PKG_120H"),
+             InlineKeyboardButton("144H • $15,500", callback_data="PKG_144H")],
+
+            [InlineKeyboardButton("168H • $18,000", callback_data="PKG_168H")],
+
+            [InlineKeyboardButton("⬅️ Back", callback_data="START")]
+        ]
+
+        context.bot.send_message(
+            uid,
+            "🇨🇳 <b>Select Trending Duration</b>",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(kb),
+        )
 
     elif q.data.startswith("PKG_"):
         pkg = q.data.replace("PKG_", "")
@@ -155,17 +171,16 @@ def buttons(update: Update, context: CallbackContext):
 
         state["amount"] = amount
 
-        # ===== ADDED CLEAN CLICKABLE NAME =====
         link = state.get("telegram") or state.get("twitter") or state["pair_url"]
         name_line = f'<a href="{link}"><b>{state["name"]}</b></a>'
 
         caption = (
-            "✨ <b>Token Detected</b>\n\n"
+            "✨ <b>Token Overview</b>\n\n"
             f"{name_line}\n"
-            f"🔹 Symbol: <b>{state['symbol']}</b>\n"
-            f'💰 <a href="{state["pair_url"]}">Price: ${state["price"]}</a>\n'
-            f"💧 Liquidity: ${state['liquidity']:,.2f}\n"
-            f"📊 Market Cap: ${state['mcap']:,.0f}\n\n"
+            f"Symbol: {state['symbol']}\n"
+            f'<a href="{state["pair_url"]}">Price: ${state["price"]}</a>\n'
+            f"Liquidity: ${state['liquidity']:,.2f}\n"
+            f"Market Cap: ${state['mcap']:,.0f}\n\n"
             f"⏱ Package: {pkg}\n"
             f"💎 Pay: {amount} {state['network']}"
         )
@@ -189,10 +204,13 @@ def buttons(update: Update, context: CallbackContext):
 
         context.bot.send_message(
             uid,
-            f"Activation Address ({state['network']}):\n\n"
-            f"`{wallet}`\n\n"
+            f"🇨🇳 <b>Weibo Trending Activation</b>\n\n"
+            f"Network: <b>{state['network']}</b>\n"
+            f"Package: <b>{state['package']}</b>\n\n"
+            f"<b>Activation Address</b>\n"
+            f"<code>{wallet}</code>\n\n"
             "🛎️ Send TXID to confirm",
-            parse_mode="Markdown",
+            parse_mode="HTML",
         )
 
     elif q.data.startswith("ADMIN_START_") and uid == ADMIN_ID:
@@ -210,7 +228,7 @@ def buttons(update: Update, context: CallbackContext):
         q.edit_message_text("Trending activated.")
 
 
-# ===== TEXT INPUT =====
+# ===== TEXT HANDLER =====
 def messages(update: Update, context: CallbackContext):
     uid = update.message.from_user.id
     txt = update.message.text.strip()
@@ -233,12 +251,12 @@ def messages(update: Update, context: CallbackContext):
         name_line = f'<a href="{link}"><b>{data["name"]}</b></a>'
 
         caption = (
-            "✨ <b>Token Detected</b>\n\n"
+            "✨ <b>Token Overview</b>\n\n"
             f"{name_line}\n"
-            f"🔹 Symbol: <b>{data['symbol']}</b>\n"
-            f'💰 <a href="{data["pair_url"]}">Price: ${data["price"]}</a>\n'
-            f"💧 Liquidity: ${data['liquidity']:,.2f}\n"
-            f"📊 Market Cap: ${data['mcap']:,.0f}"
+            f"Symbol: {data['symbol']}\n"
+            f'<a href="{data["pair_url"]}">Price: ${data["price"]}</a>\n'
+            f"Liquidity: ${data['liquidity']:,.2f}\n"
+            f"Market Cap: ${data['mcap']:,.0f}"
         )
 
         context.bot.send_photo(
