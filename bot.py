@@ -84,6 +84,7 @@ def fetch_dex_data(ca):
         "logo": (pair.get("info") or {}).get("imageUrl"),
         "telegram": telegram,
         "twitter": twitter,
+        "chain": pair.get("chainId", "").upper(),
     }
 
 
@@ -141,15 +142,11 @@ def buttons(update: Update, context: CallbackContext):
         kb = [
             [InlineKeyboardButton("24H • $2,500", callback_data="PKG_24H"),
              InlineKeyboardButton("48H • $5,500", callback_data="PKG_48H")],
-
             [InlineKeyboardButton("72H • $8,000", callback_data="PKG_72H"),
              InlineKeyboardButton("96H • $10,500", callback_data="PKG_96H")],
-
             [InlineKeyboardButton("120H • $13,000", callback_data="PKG_120H"),
              InlineKeyboardButton("144H • $15,500", callback_data="PKG_144H")],
-
             [InlineKeyboardButton("168H • $18,000", callback_data="PKG_168H")],
-
             [InlineKeyboardButton("⬅️ Back", callback_data="START")]
         ]
 
@@ -174,16 +171,14 @@ def buttons(update: Update, context: CallbackContext):
         name_line = f'<a href="{link}"><b>{state["name"]}</b></a>'
 
         caption = (
-            "✨ <b>Token Overview | 项目信息</b>\n\n"
+            "✨ <b>Token Overview</b>\n\n"
             f"{name_line}\n"
-            f"┃ Symbol: <b>{state['symbol']}</b>\n"
-            f'┃ <a href="{state["pair_url"]}">Price: ${state["price"]}</a>\n'
-            f"┃ Liquidity: ${state['liquidity']:,.2f}\n"
-            f"┃ Market Cap: ${state['mcap']:,.0f}\n\n"
-            "──────────────\n"
-            f"⏱ Package: <b>{pkg}</b>\n"
-            f"💎 Pay: <b>{amount} {state['network']}</b>\n"
-            "──────────────"
+            f"Symbol: {state['symbol']}\n"
+            f'<a href="{state["pair_url"]}">Price: ${state["price"]}</a>\n'
+            f"Liquidity: ${state['liquidity']:,.2f}\n"
+            f"Market Cap: ${state['mcap']:,.0f}\n\n"
+            f"⏱ Package: {pkg}\n"
+            f"💎 Pay: {amount} {state['network']}"
         )
 
         q.message.delete()
@@ -209,26 +204,12 @@ def buttons(update: Update, context: CallbackContext):
             f"┃ Network: <b>{state['network']}</b>\n"
             f"┃ Package: <b>{state['package']}</b>\n\n"
             "──────────────\n"
-            "<b>Activation Address</b>\n"
+            "✅ Activation Address\n"
             f"<code>{wallet}</code>\n"
             "──────────────\n"
             "🛎️ Send TXID to confirm",
             parse_mode="HTML",
         )
-
-    elif q.data.startswith("ADMIN_START_") and uid == ADMIN_ID:
-        ref = q.data.replace("ADMIN_START_", "")
-        payload = context.bot_data.pop(ref, None)
-
-        context.bot.send_message(
-            CHANNEL_USERNAME,
-            f"🔥 Weibo Trending Live 🇨🇳\n\n"
-            f"{payload['name']} ({payload['symbol']})\n"
-            f"CA: {payload['ca']}\n"
-            f"Started: {datetime.utcnow().strftime('%H:%M UTC')}",
-        )
-
-        q.edit_message_text("Trending activated.")
 
 
 # ===== TEXT HANDLER =====
@@ -245,6 +226,13 @@ def messages(update: Update, context: CallbackContext):
 
         if not data:
             update.message.reply_text("Token not found.")
+            return
+
+        # 🚨 NEW CHAIN VALIDATION
+        if data["chain"] and data["chain"] != state["network"]:
+            update.message.reply_text(
+                f"❌ Wrong network.\nYou selected {state['network']} but token is on {data['chain']}."
+            )
             return
 
         state.update(data)
@@ -297,6 +285,7 @@ def messages(update: Update, context: CallbackContext):
         USER_STATE.pop(uid, None)
 
 
+# ===== MAIN =====
 def main():
     updater = Updater(BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
