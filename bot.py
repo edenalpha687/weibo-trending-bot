@@ -50,7 +50,6 @@ def get_price(symbol):
             f"https://api.coingecko.com/api/v3/simple/price?ids={ids[symbol]}&vs_currencies=usd",
             timeout=10,
         ).json()
-
         return list(r.values())[0]["usd"]
     except:
         return None
@@ -142,15 +141,11 @@ def buttons(update: Update, context: CallbackContext):
         kb = [
             [InlineKeyboardButton("24H • $2,500", callback_data="PKG_24H"),
              InlineKeyboardButton("48H • $5,500", callback_data="PKG_48H")],
-
             [InlineKeyboardButton("72H • $8,000", callback_data="PKG_72H"),
              InlineKeyboardButton("96H • $10,500", callback_data="PKG_96H")],
-
             [InlineKeyboardButton("120H • $13,000", callback_data="PKG_120H"),
              InlineKeyboardButton("144H • $15,500", callback_data="PKG_144H")],
-
             [InlineKeyboardButton("168H • $18,000", callback_data="PKG_168H")],
-
             [InlineKeyboardButton("⬅️ Back", callback_data="START")]
         ]
 
@@ -168,19 +163,18 @@ def buttons(update: Update, context: CallbackContext):
         usd_price = PACKAGES[pkg]
         coin_price = get_price(state["network"])
         amount = round((usd_price / coin_price) * 1.02, 4)
-
         state["amount"] = amount
 
         link = state.get("telegram") or state.get("twitter") or state["pair_url"]
         name_line = f'<a href="{link}"><b>{state["name"]}</b></a>'
 
         caption = (
-            "✨ <b>Token Overview</b>\n\n"
-            f"{name_line}\n"
-            f"Symbol: {state['symbol']}\n"
-            f'<a href="{state["pair_url"]}">Price: ${state["price"]}</a>\n'
-            f"Liquidity: ${state['liquidity']:,.2f}\n"
-            f"Market Cap: ${state['mcap']:,.0f}\n\n"
+            "🚀 <b>Token Overview</b>\n\n"
+            f"🐰 {name_line}\n"
+            f"🔹 Symbol: {state['symbol']}\n"
+            f'💰 <a href="{state["pair_url"]}">Price: ${state["price"]}</a>\n'
+            f"💧 Liquidity: ${state['liquidity']:,.2f}\n"
+            f"📊 Market Cap: ${state['mcap']:,.0f}\n\n"
             f"⏱ Package: {pkg}\n"
             f"💎 Pay: {amount} {state['network']}"
         )
@@ -241,23 +235,20 @@ def messages(update: Update, context: CallbackContext):
 
     if state["step"] == "CA":
         data = fetch_dex_data(txt)
-
         if not data:
             update.message.reply_text("Token not found.")
             return
 
-        # ⭐ ADDED NETWORK VALIDATION FIX
         chain_map = {
             "SOL": ["solana"],
             "ETH": ["ethereum", "eth"],
-            "BSC": ["bsc", "binance-smart-chain"],
+            "BSC": ["bsc"],
             "BASE": ["base"],
             "SUI": ["sui"],
             "XRP": ["xrpl", "xrp"],
         }
 
         token_chain = (data.get("chain") or "").lower()
-
         if token_chain and token_chain not in chain_map.get(state["network"], []):
             update.message.reply_text(
                 f"❌ Wrong network.\nYou selected {state['network']} but token appears on {token_chain.upper()}."
@@ -271,12 +262,12 @@ def messages(update: Update, context: CallbackContext):
         name_line = f'<a href="{link}"><b>{data["name"]}</b></a>'
 
         caption = (
-            "✨ <b>Token Overview</b>\n\n"
-            f"{name_line}\n"
-            f"Symbol: {data['symbol']}\n"
-            f'<a href="{data["pair_url"]}">Price: ${data["price"]}</a>\n'
-            f"Liquidity: ${data['liquidity']:,.2f}\n"
-            f"Market Cap: ${data['mcap']:,.0f}"
+            "🚀 <b>Token Overview</b>\n\n"
+            f"🐰 {name_line}\n"
+            f"🔹 Symbol: {data['symbol']}\n"
+            f'💰 <a href="{data["pair_url"]}">Price: ${data["price"]}</a>\n'
+            f"💧 Liquidity: ${data['liquidity']:,.2f}\n"
+            f"📊 Market Cap: ${data['mcap']:,.0f}"
         )
 
         context.bot.send_photo(
